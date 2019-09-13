@@ -3,7 +3,7 @@
 # Good luck, and have fun!
 
 .data
-	
+
     # Constants for accessing the fields of a struct keystroke_args
     # struct keystroke_args is defined in rtc.h and mp1.h
 
@@ -94,42 +94,66 @@ mp1_rtc_tasklet:
 # The dispatch function for the MP1 ioctls - should use the cmd argument
 # and a jumptable to execute one of the specific ioctls implemented below.
 # Inputs   : unsigned long arg - parameter to the mp1_ioctl_....
-#          : unsigned int cmd  - specifies which mp1_ioctl_... function 
+#          : unsigned int cmd  - specifies which mp1_ioctl_... function
 #          :                     to execute
 # Outputs  : Returns an integer - depends on which ioctl() function is called
 # Registers: Standard C calling convention
 
 .globl mp1_ioctl
 mp1_ioctl:
-		movl 8(%esp), %eax #move argument into eax
+		movl 8(%esp), %eax # move argument into eax
 
-		cmp  $0, %eax #eax- 0
+		cmp  $0, %eax # eax- 0
 		je   mp1_ioctl_startgame
 
-		cmp  $1, %eax #eax-1
+		cmp  $1, %eax # eax-1
 		je	 mp1_ioctl_endgame
 
-		cmp  $2, %eax #eax-2
+		cmp  $2, %eax # eax-2
 		je   mp1_ioctl_keystroke
 
-		cmp  $3, %eax #eax-3
+		cmp  $3, %eax # eax-3
 		je	 mp1_ioctl_getstatus
-		
-		cmp  $4, %eax #eax - 4
+
+		cmp  $4, %eax # eax - 4
 		je   mp1_ioctl_vaccinate
 
-		movl $-1, %eax #any other value put -1 into eax
+		movl $-1, %eax # any other value put -1 into eax
 		ret
 
 
 # ----------------- Functions private to this file -------------------
 
 
-draw_screen:	
+draw_screen:
 	# For simplicity, your implementation may assume a SCR_WIDTH of 80.
 		ret
 
 mp1_ioctl_startgame:
+		pushl %ebp # push old base pointer
+		movl %esp, %ebp
+
+		pushl %ebx # callee save registers
+		pushl %esi
+		pushl %edi
+
+		pushl %eax # caller save register
+		pushl %edx
+		pushl %ecx
+
+		pushl 8(%ebp) # argument push
+		call  seed_generator
+		add		$4, %esp # remove parameter
+
+		pushl $1600()
+		call  mp1_malloc
+
+		popl  %ecx # caller pop
+		popl  %edx
+		popl  %eax
+
+
+
 		ret
 
 mp1_ioctl_endgame:
@@ -143,4 +167,3 @@ mp1_ioctl_getstatus:
 
 mp1_ioctl_vaccinate:
 		ret
-
