@@ -101,6 +101,24 @@ mp1_rtc_tasklet:
 
 .globl mp1_ioctl
 mp1_ioctl:
+		movl 8(%esp), %eax #move argument into eax
+
+		cmp  $0, %eax #eax- 0
+		je   mp1_ioctl_startgame
+
+		cmp  $1, %eax #eax-1
+		je	 mp1_ioctl_endgame
+
+		cmp  $2, %eax #eax-2
+		je   mp1_ioctl_keystroke
+
+		cmp  $3, %eax #eax-3
+		je	 mp1_ioctl_getstatus
+		
+		cmp  $4, %eax #eax - 4
+		je   mp1_ioctl_vaccinate
+
+		movl $-1, %eax #any other value put -1 into eax
 		ret
 
 
