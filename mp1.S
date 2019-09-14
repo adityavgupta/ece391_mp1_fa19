@@ -150,7 +150,7 @@ mp1_ioctl_startgame:
 		add   $4, %esp
 
 		cmpl  $0, %eax # compare the value of pointer returned from malloc with null (eax - 0)
-	  je    board_fail
+	  je    alloc_fail
 		movl  %eax, current_board # move the pointer to the current board(eax) into the label 'current board'
 
 		pushl $SCR_SIZE # allocate memory for board #2
@@ -158,26 +158,23 @@ mp1_ioctl_startgame:
 		add   $4, %esp
 
 		cmpl  $0, %eax
-		je    board_fail
+		je    board_2_fail
 		movl  %eax, next_board # move the pointer to the next board(eax) into the label 'next_board'
 		jmp   alloc_success
 
-board_fail:
+board_2_fail:
     pushl $current_board # free current_board
 		call  mp1_free
 		add   $4, %esp
-		movl  $0, current_board
 
-		pushl $next_board  # free next_board
-		call  mp1_free
-		add   $4,%esp
-		movl  $0, next_board
+		movl  $0, current_board
 
 		jmp   alloc_fail
 
 alloc_success:
+
     movl  SCR_SIZE, %ebx # set up counter to fill the board with 0 bytes
-		movl  current_board, %eax #
+		movl  current_board, %eax
 	board_1_counter:
 		movb  $0, (%eax)
 		inc   %eax   # increment the position in the board array
@@ -207,7 +204,6 @@ alloc_success:
 
 alloc_fail:
     movl $-1, %eax # set return value to -1 if fail
-		jmp  final_pop
 
 final_pop:
 		popl  %ecx # caller pop
@@ -219,6 +215,7 @@ final_pop:
 		popl  %esi
 		popl  %ebx
 
+    leave
 		ret
 
 mp1_ioctl_endgame:
