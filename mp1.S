@@ -151,7 +151,7 @@ mp1_ioctl_startgame:
 
 		cmpl  $0, %eax # compare the value of pointer returned from malloc with null (eax - 0)
 	  je    board_fail
-		movl (%eax), current_board # move the pointer to the current board(eax) into the label 'current board'
+		movl  %eax, current_board # move the pointer to the current board(eax) into the label 'current board'
 
 		pushl $SCR_SIZE # allocate memory for board #2
 		call  mp1_malloc
@@ -159,7 +159,7 @@ mp1_ioctl_startgame:
 
 		cmpl  $0, %eax
 		je    board_fail
-		movl  (%eax), next_board # move the pointer to the next board(eax) into the label 'next_board'
+		movl  %eax, next_board # move the pointer to the next board(eax) into the label 'next_board'
 		jmp   alloc_success
 
 board_fail:
@@ -179,18 +179,18 @@ alloc_success:
     movl  SCR_SIZE, %ebx # set up counter to fill the board with 0 bytes
 		movl  current_board, %eax #
 	board_1_counter:
-		movl  $0, (%eax)
-		incl  %eax   # increment the position in the board array
-		decl  %ebx   # decrement counter
+		movb  $0, (%eax)
+		inc   %eax   # increment the position in the board array
+		dec   %ebx   # decrement counter
 		cmpl  $0, %ebx
 		ja    board_1_counter # exit loop when counter = 0 i.e. loop 1600 (SCR_SIZE) times
 
 		movl SCR_SIZE, %ebx
 		movl next_board, %eax
 	board_2_counter:
-	  movl  $0, (%eax)
-	  incl  %eax   # increment the position in the board array
-	  decl  %ebx   # decrement counter
+	  movb  $0, (%eax)
+	  inc   %eax   # increment the position in the board array
+	  dec   %ebx   # decrement counter
 	  cmpl  $0, %ebx
 		ja    board_2_counter
 
@@ -198,20 +198,26 @@ alloc_success:
 		call  init_virus
 		add   $4, %esp
 
-		movl  %eax, infection # move the return value from init_virus
+		movl %eax, infection # move the return value from init_virus
     movl $80, aggression
 		movl $8000000, population
 
 		movl $0, %eax # set return value to 0 is successful
-		jmp  caller_pop
+		jmp  final_pop
 
 alloc_fail:
     movl $-1, %eax # set return value to -1 if fail
 		jmp  caller_pop
 
-caller_pop:
+final_pop:
 		popl  %ecx # caller pop
 		popl  %edx
+		addl  $4, %esp
+
+		# recall callee saved register
+		popl  %edi
+		popl  %esi
+		popl  %ebx
 
 		ret
 
