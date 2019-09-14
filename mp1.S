@@ -88,7 +88,7 @@ mp1_poke:
 .globl mp1_rtc_tasklet
 mp1_rtc_tasklet:
     pushl %ebp
-		movl %esp, %ebp
+		movl  %esp, %ebp
 
 		pushl %ebx # callee save registers
 		pushl %esi
@@ -102,15 +102,16 @@ mp1_rtc_tasklet:
 		je    end_tasklet
 
 		movl  $1, %ebx # row  counter
-		movl  $1, %edi # column counter
 		xorl  %edx, %edx # clear register to keep track of alive cells in next_board
  row_loop:
-
+    movl  $1, %edi # set column counter to 1
  column_loop:
     imull $SCR_WIDTH, %ebx, %esi # current_row*80 -> esi
 		addl %edi, %esi # current_row*80 + current_column -> esi
+		movl %esi, %ecx
     addl current_board, %esi
 
+    pushl %ecx
 		pushl %esi
 		call  neighbor_count
 		popl  %esi
@@ -120,9 +121,10 @@ mp1_rtc_tasklet:
 		pushl (%esi)
 		call  tick_result
 		addl  $8, %esp
+		popl  %ecx
 
-		addl next_board, %esi
-		movl %eax, (%esi)
+		addl next_board, %ecx
+		movl %eax, (%ecx)
 
 
 		cmpl $0, %eax
@@ -132,16 +134,35 @@ mp1_rtc_tasklet:
   dead_cell:
 	  inc  %edi
 		cmpl $78, %edi
-		jle  column_loop
+		jbe  column_loop
 
 		inc  %ebx
 		cmpl $18, %ebx
-		jle  row_loop
-
+		jbe  row_loop
 
 		imull $10, %edx
     movl  %edi, infection
 
+   # part 2 of the tasklet: swapping the two baord pointers
+
+	 movl next_board, %ebx # next_board->ebx
+	 movl %ebx, %esi  # ebx->esi
+	 movl current_board, %ebx  # current_board->ebx
+	 movl %ebx, next_board  # ebx->next_board i.e. next board gets updated to current_board
+	 movl %esi, current_board # esi->current_board i.e. current board gets updated to next_board
+
+
+	 # part 3 of tasklet: subtract new infection value from population
+	 movl infection, %ebx
+	 movl population, %esi
+
+	 subl  %ebx, %esi
+	 cmpl $0, %esi
+	 jb    set_zero
+   movl  %esi, population
+	 jmp   draw_screen
+ set_zero:
+   movl $0, population
 
 end_tasklet:
 		popl  %ecx
@@ -151,6 +172,8 @@ end_tasklet:
 		popl  %edi
 		popl  %esi
 		popl  %ebx
+
+		leave
 		ret
 
 
