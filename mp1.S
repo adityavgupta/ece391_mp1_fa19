@@ -173,7 +173,7 @@ board_2_fail:
 
 alloc_success:
 
-    movl  SCR_SIZE, %ebx # set up counter to fill the board with 0 bytes
+    movl  $SCR_SIZE, %ebx # set up counter to fill the board with 0 bytes
 		movl  current_board, %eax
 	board_1_counter:
 		movb  $0, (%eax)
@@ -182,7 +182,7 @@ alloc_success:
 		cmpl  $0, %ebx
 		ja    board_1_counter # exit loop when counter = 0 i.e. loop 1600 (SCR_SIZE) times
 
-		movl SCR_SIZE, %ebx
+		movl $SCR_SIZE, %ebx
 		movl next_board, %eax
 	board_2_counter:
 	  movb  $0, (%eax)
