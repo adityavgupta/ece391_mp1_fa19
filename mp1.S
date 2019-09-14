@@ -207,7 +207,7 @@ alloc_success:
 
 alloc_fail:
     movl $-1, %eax # set return value to -1 if fail
-		jmp  caller_pop
+		jmp  final_pop
 
 final_pop:
 		popl  %ecx # caller pop
