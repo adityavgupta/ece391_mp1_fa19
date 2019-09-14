@@ -155,14 +155,14 @@ mp1_rtc_tasklet:
 	 # part 3 of tasklet: subtract new infection value from population
 	 movl infection, %ebx
 	 movl population, %esi
-
 	 subl  %ebx, %esi
-	 cmpl $0, %esi
-	 jb    set_zero
+	 cmpl  $0, %esi
+	 jae   above_zero
+	 movl  $0, population
+   jmp   draw_screen
+ above_zero:
    movl  %esi, population
 	 jmp   draw_screen
- set_zero:
-   movl $0, population
 
 end_tasklet:
 		popl  %ecx
