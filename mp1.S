@@ -23,7 +23,7 @@
 
     # Constants for screen size
 
-    	SCR_WIDTH  = 80
+  SCR_WIDTH  = 80
 	SCR_HEIGHT = 20
 	SCR_SIZE   = ((SCR_WIDTH) * (SCR_HEIGHT))
 
@@ -87,6 +87,70 @@ mp1_poke:
 
 .globl mp1_rtc_tasklet
 mp1_rtc_tasklet:
+    pushl %ebp
+		movl %esp, %ebp
+
+		pushl %ebx # callee save registers
+		pushl %esi
+		pushl %edi
+
+		pushl %eax # caller save register
+		pushl %edx
+		pushl %ecx
+
+		cmpl  $0, current_board
+		je    end_tasklet
+
+		movl  $1, %ebx # row  counter
+		movl  $1, %edi # column counter
+		xorl  %edx, %edx # clear register to keep track of alive cells in next_board
+ row_loop:
+
+ column_loop:
+    imull $SCR_WIDTH, %ebx, %esi # current_row*80 -> esi
+		addl %edi, %esi # current_row*80 + current_column -> esi
+    addl current_board, %esi
+
+		pushl %esi
+		call  neighbor_count
+		popl  %esi
+
+
+    pushl %eax
+		pushl (%esi)
+		call  tick_result
+		addl  $8, %esp
+
+		addl next_board, %esi
+		movl %eax, (%esi)
+
+
+		cmpl $0, %eax
+		je   dead_cell
+    inc  %edx
+
+  dead_cell:
+	  inc  %edi
+		cmpl $78, %edi
+		jle  column_loop
+
+		inc  %ebx
+		cmpl $18, %ebx
+		jle  row_loop
+
+
+		imull $10, %edx
+    movl  %edi, infection
+
+
+end_tasklet:
+		popl  %ecx
+		popl  %edx
+		popl  %eax
+
+		popl  %edi
+		popl  %esi
+		popl  %ebx
 		ret
 
 
