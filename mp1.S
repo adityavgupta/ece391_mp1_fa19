@@ -29,7 +29,7 @@
 
     # ASCII cell images
 
-        CELL_LIVE = 0x78
+  CELL_LIVE = 0x78
 	CELL_DEAD = 0x20
 
 
@@ -159,11 +159,16 @@ mp1_rtc_tasklet:
 	 cmpl  $0, %esi
 	 jae   above_zero
 	 movl  $0, population
-   jmp   draw_screen
+
+   jmp   to_draw_screen
+
  above_zero:
    movl  %esi, population
-	 jmp   draw_screen
 
+ to_draw_screen:
+	 call   draw_screen
+
+	 call  mp1_notify_user
 end_tasklet:
 		popl  %ecx
 		popl  %edx
@@ -214,6 +219,42 @@ mp1_ioctl:
 
 draw_screen:
 	# For simplicity, your implementation may assume a SCR_WIDTH of 80.
+	  push %ebp
+		movl %esp, %ebp
+
+		pushl %ebx  # callee save registers
+		pushl %esi
+		pushl %edi
+
+    movl $0, %ebx
+
+	drawing_loop:
+    imull $2, %ebx, %eax # get the offset into eax
+		movl  current_board, %edi # point to the start of the board
+		addl %ebx, %edi # go to the  offset cell
+		mov (%edi), %ecx  # move the value in edi to ecx
+
+		cmpl $0, %ecx # check if the cell is dead
+		je   cell_is_dead
+
+    movb $CELL_LIVE, %cl
+		jmp  poke_it
+
+  cell_is_dead:
+	  movb $CELL_DEAD, %cl
+
+	poke_it:
+	  call  mp1_poke
+
+		inc %ebx
+		cmpl $SCR_SIZE, %ebx
+		jb   drawing_loop
+
+		popl  %edi  # callee pop registers
+		popl  %esi
+		popl  %ebx
+
+    leave
 		ret
 
 mp1_ioctl_startgame:
