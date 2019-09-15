@@ -219,7 +219,7 @@ mp1_ioctl:
 
 draw_screen:
 	# For simplicity, your implementation may assume a SCR_WIDTH of 80.
-	  push %ebp
+	  pushl %ebp
 		movl %esp, %ebp
 
 		pushl %ebx  # callee save registers
@@ -231,8 +231,8 @@ draw_screen:
 	drawing_loop:
     imull $2, %ebx, %eax # get the offset into eax
 		movl  current_board, %edi # point to the start of the board
-		addl %ebx, %edi # go to the  offset cell
-		mov (%edi), %ecx  # move the value in edi to ecx
+		addl  %ebx, %edi # go to the  offset cell
+		mov   (%edi), %ecx  # move the value in edi to ecx
 
 		cmpl $0, %ecx # check if the cell is dead
 		je   cell_is_dead
@@ -347,6 +347,34 @@ final_pop:
 		ret
 
 mp1_ioctl_endgame:
+    pushl %ebp # push old base pointer
+    movl %esp, %ebp
+
+    pushl %ebx # callee save registers
+    pushl %esi
+    pushl %edi
+
+    pushl %edx
+    pushl %ecx
+
+		pushl $current_board
+		call  mp1_free
+		addl  $4, %esp
+		movl  $0, current_board
+
+		pushl $next_board
+		call  mp1_free
+		addl  $4, %esp
+		movl  $0, next_board
+
+		popl  %ecx
+		popl  %edx
+		popl  %edi
+		popl  %esi
+		popl  %ebx
+
+		movl $0, %eax
+		leave
 		ret
 
 mp1_ioctl_keystroke:
