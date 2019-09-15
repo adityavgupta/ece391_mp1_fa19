@@ -354,7 +354,7 @@ mp1_ioctl_endgame:
     pushl %esi
     pushl %edi
 
-    pushl %edx
+    pushl %edx # caller save
     pushl %ecx
 
 		pushl $current_board
@@ -381,6 +381,38 @@ mp1_ioctl_keystroke:
 		ret
 
 mp1_ioctl_getstatus:
+    pushl %ebp
+		movl %esp, %ebp
+
+    pushl %ebx # callee save registers
+    pushl %esi
+    pushl %edi
+
+		pushl %edx # caller save
+    pushl %ecx
+
+    pushl population
+		pushl infection
+
+		pushl $GS_SIZE
+		push 4(%esp)
+		push 8(%esp)
+		call mp1_copy_to_user
+		add $12, %esp
+
+    cmpl $0, %eax # if eax gives 0 then success otherwise fail
+		je   success_gs
+		movl $-1, %eax
+    jmp   pops
+	success_gs:
+    movl $0, %eax
+  pops:
+		popl  %ecx # caller pop
+		popl  %edx
+
+		popl  %edi # callee pop
+    popl  %esi
+		popl  %ebx
 		ret
 
 mp1_ioctl_vaccinate:
