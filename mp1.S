@@ -226,29 +226,26 @@ draw_screen:
 		pushl %esi
 		pushl %edi
 
-    movl $0, %ebx
+    movl $0, %esi # counter
 
 	drawing_loop:
-    imull $2, %ebx, %eax # get the offset into eax
-		movl  current_board, %edi # point to the start of the board
-		addl  %ebx, %edi # go to the  offset cell
-		mov   (%edi), %ecx  # move the value in edi to ecx
-
-		cmpl $0, %ecx # check if the cell is dead
-		je   cell_is_dead
-
-    movb $CELL_LIVE, %cl
+	  imull $2, %esi, %eax
+    movl current_board, %edi # edi points to start of game board
+		movb (%edi, %esi), %bl
+		cmpb $0, %bl
+		je   cel_ded
+		movb $CELL_LIVE, %cl
 		jmp  poke_it
+	 cel_ded:
+		movb  $CELL_DEAD, %cl
+	 poke_it:
+		push %edx
+		call mp1_poke
+		pop %edx
 
-  cell_is_dead:
-	  movb $CELL_DEAD, %cl
-
-	poke_it:
-	  call  mp1_poke
-
-		inc %ebx
-		cmpl $SCR_SIZE, %ebx
-		jb   drawing_loop
+		inc %esi
+		cmp $SCR_SIZE, %esi
+		jl  drawing_loop
 
 		popl  %edi  # callee pop registers
 		popl  %esi
@@ -378,6 +375,7 @@ mp1_ioctl_endgame:
 		ret
 
 mp1_ioctl_keystroke:
+
 		ret
 
 mp1_ioctl_getstatus:
