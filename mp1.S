@@ -388,31 +388,41 @@ mp1_ioctl_getstatus:
     pushl %esi
     pushl %edi
 
-		pushl %edx # caller save
-    pushl %ecx
+    cmp $0, 8(%ebp)
+		je  fail_gs
 
-    pushl population
-		pushl infection
+		push infection
+		push population
+		mov  %esp, %ebx
 
-		pushl $GS_SIZE
-		push 4(%esp)
-		push 8(%esp)
+		push %ecx
+		push %edx
+		push $GS_SIZE
+		push %ebx
+		push 8(%ebp)
 		call mp1_copy_to_user
 		add $12, %esp
+		pop %edx
+		pop %ecx
 
-    cmpl $0, %eax # if eax gives 0 then success otherwise fail
-		je   success_gs
-		movl $-1, %eax
-    jmp   pops
+		add $GS_SIZE, %esp
+
+		cmp $0, %eax
+		je  success_gs
+
+  fail_gs:
+	  mov $-1, %eax
+		jmp pops
+
 	success_gs:
-    movl $0, %eax
-  pops:
-		popl  %ecx # caller pop
-		popl  %edx
+	  mov $0, %eax
 
+	pops:
 		popl  %edi # callee pop
     popl  %esi
 		popl  %ebx
+
+		leave
 		ret
 
 mp1_ioctl_vaccinate:
