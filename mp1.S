@@ -87,7 +87,7 @@ mp1_poke:
 
 .globl mp1_rtc_tasklet
 mp1_rtc_tasklet:
-    pushl %ebp
+    pushl %ebp # stack setup
 		movl  %esp, %ebp
 
 		pushl %ebx # callee save registers
@@ -98,25 +98,34 @@ mp1_rtc_tasklet:
 		pushl %edx
 		pushl %ecx
 
-		cmpl  $0, current_board
+		cmpl  $0, current_board # check for a null pointer
 		je    end_tasklet
 
 		movl  $1, %ebx # row  counter
 		movl  $0, %edx # clear register to keep track of alive cells in next_board
+
+
  row_loop:
-    movl  $1, %edi # set column counter to 1
+    movl  $1, %edi
  column_loop:
-    imull $SCR_WIDTH, %ebx, %esi # current_row*80 -> esi
-		addl %edi, %esi # current_row*80 + current_column -> esi
+    imull $SCR_WIDTH, %ebx, %esi
+		addl %edi, %esi
 		movl %esi, %ecx
     addl current_board, %esi
 
-    pushl %edx
+    pushl %edx # caller save
     pushl %ecx
+
+		# neighbor count and tick result help determine if the cell is alive or dead in next_board
+		# int neighbor count (unsigned char* cell)
+		  # neighbour count parameters: pointer to the board
+
+		# int tick result (unsigned char cur, int neighbors);
+		  # tick result parameters: (1) result from neighbor_count (2) value in the cell in current board
+
 		pushl %esi
 		call  neighbor_count
 		popl  %esi
-
 
     pushl %eax
 		pushl (%esi)
@@ -128,51 +137,53 @@ mp1_rtc_tasklet:
 		addl next_board, %ecx
 		movb %al, (%ecx)
 
-
 		cmpl $0, %eax
 		je   dead_cell
     inc  %edx
 
   dead_cell:
 	  inc  %edi
-		cmpl $78, %edi
+		cmpl $SCR_WIDTH-2, %edi
 		jle  column_loop
 
 		inc  %ebx
-		cmpl $18, %ebx
+		cmpl $SCR_HEIGHT-2, %ebx
 		jle  row_loop
 
 		imull $10, %edx
     movl  %edx, infection
 
    # part 2 of the tasklet: swapping the two baord pointers
+   # swap by using a temp register
 
-	 movl next_board, %ebx # next_board->ebx
-	 movl %ebx, %esi  # ebx->esi
-	 movl current_board, %ebx  # current_board->ebx
-	 movl %ebx, next_board  # ebx->next_board i.e. next board gets updated to current_board
-	 movl %esi, current_board # esi->current_board i.e. current board gets updated to next_board
+	  movl next_board, %ebx
+	  movl %ebx, %esi
+	  movl current_board, %ebx
+	  movl %ebx, next_board
+	  movl %esi, current_board
 
 
 	 # part 3 of tasklet: subtract new infection value from population
-	 movl infection, %ebx
-	 movl population, %esi
-	 subl  %ebx, %esi
-	 cmpl  $0, %esi
-	 jge   above_zero
-	 movl  $0, population
+	  movl infection, %ebx
+	  movl population, %esi
+	  subl  %ebx, %esi
+	  cmpl  $0, %esi
+	  jge   above_zero
+	  movl  $0, population
 
-   jmp   to_draw_screen
+    jmp   to_draw_screen
 
- above_zero:
-   movl  %esi, population
+  above_zero:
+    movl  %esi, population
 
- to_draw_screen:
+  to_draw_screen:
 	 call   draw_screen
 
+   # notify user before leaving
 	 call  mp1_notify_user
+
 end_tasklet:
-		popl  %ecx
+		popl  %ecx # stack tear down
 		popl  %edx
 		popl  %eax
 
@@ -197,49 +208,66 @@ end_tasklet:
 mp1_ioctl:
 		movl 8(%esp), %eax # move argument into eax
 
-		cmp  $0, %eax # eax- 0
+    # compare the argument values and jump to the respective ioctl
+		cmp  $0, %eax
 		je   mp1_ioctl_startgame
 
-		cmp  $1, %eax # eax-1
+		cmp  $1, %eax
 		je	 mp1_ioctl_endgame
 
-		cmp  $2, %eax # eax-2
+		cmp  $2, %eax
 		je   mp1_ioctl_keystroke
 
-		cmp  $3, %eax # eax-3
+		cmp  $3, %eax
 		je	 mp1_ioctl_getstatus
 
-		cmp  $4, %eax # eax - 4
+		cmp  $4, %eax
 		je   mp1_ioctl_vaccinate
 
-		movl $-1, %eax # any other value put -1 into eax
+		movl $-1, %eax # return value is -1
 		ret
 
 
 # ----------------- Functions private to this file -------------------
 
+/* *draw_screen uses the information in the current board about
+   a cell, assigns the appropriate characters to the cell and then
+   draws it.
+
+	 * current board stores 0 and 1 for dead and alive cells resp
+*/
 
 draw_screen:
 	# For simplicity, your implementation may assume a SCR_WIDTH of 80.
-	  pushl %ebp
+	  pushl %ebp  # stack setup
 		movl %esp, %ebp
 
-		pushl %ebx  # callee save registers
+		pushl %ebx
 		pushl %esi
 		pushl %edi
+
+		pushl %edx # push edx since it is used to get the offset later
 
     movl $0, %esi # counter
 
 	drawing_loop:
 	  imull $2, %esi, %eax
-    movl current_board, %edi # edi points to start of game board
-		movb (%edi, %esi), %bl
+    movl current_board, %edi
+
+    movl $0, %edx
+		addl %edi, %edx
+
+		addl %esi, %edx # offset from the current_board
+		movb (%edx), %bl # get the info about cell's state (1 byte)
+
 		cmpb $0, %bl
 		je   cel_ded
 		movb $CELL_LIVE, %cl
 		jmp  poke_it
+
 	 cel_ded:
 		movb  $CELL_DEAD, %cl
+
 	 poke_it:
 		push %edx
 		call mp1_poke
@@ -256,15 +284,21 @@ draw_screen:
     leave
 		ret
 
+ /* mp1_ioctl_startgame
+  * This function is called when the game is about to start in order to initialize the variables used by the driver.
+  * seed_generator takes the parameter to generate an argument for seed
+	* This function also allocates memory for current_board and next_board
+	* sets the initial values for aggression = 80, population = 8000000
+  */
 mp1_ioctl_startgame:
-		pushl %ebp # push old base pointer
-		movl %esp, %ebp
+		pushl %ebp # stack setup
+		movl  %esp, %ebp
 
-		pushl %ebx # callee save registers
+		pushl %ebx
 		pushl %esi
 		pushl %edi
 
-		pushl %eax # caller save register
+		pushl %eax
 		pushl %edx
 		pushl %ecx
 
@@ -276,7 +310,7 @@ mp1_ioctl_startgame:
 		call  mp1_malloc
 		add   $4, %esp
 
-		cmpl  $0, %eax # compare the value of pointer returned from malloc with null (eax - 0)
+		cmpl  $0, %eax # null pointer check
 	  je    alloc_fail
 		movl  %eax, current_board # move the pointer to the current board(eax) into the label 'current board'
 
@@ -289,7 +323,7 @@ mp1_ioctl_startgame:
 		movl  %eax, next_board # move the pointer to the next board(eax) into the label 'next_board'
 		jmp   alloc_success
 
-board_2_fail:
+  board_2_fail:
     pushl current_board # free current_board
 		call  mp1_free
 		add   $4, %esp
@@ -298,7 +332,7 @@ board_2_fail:
 
 		jmp   alloc_fail
 
-alloc_success:
+ alloc_success:
 
     movl  $SCR_SIZE, %ebx # set up counter to fill the board with 0 bytes
 		movl  current_board, %eax
@@ -307,14 +341,15 @@ alloc_success:
 		inc   %eax   # increment the position in the board array
 		dec   %ebx   # decrement counter
 		cmpl  $0, %ebx
-		ja    board_1_counter # exit loop when counter = 0 i.e. loop 1600 (SCR_SIZE) times
+		ja    board_1_counter # exit loop when counter = 0 i.e. loop SCR_SIZE times
 
 		movl $SCR_SIZE, %ebx
 		movl next_board, %eax
+
 	board_2_counter:
 	  movb  $0, (%eax)
-	  inc   %eax   # increment the position in the board array
-	  dec   %ebx   # decrement counter
+	  inc   %eax
+	  dec   %ebx
 	  cmpl  $0, %ebx
 		ja    board_2_counter
 
@@ -333,11 +368,10 @@ alloc_fail:
     movl $-1, %eax # set return value to -1 if fail
 
 final_pop:
-		popl  %ecx # caller pop
+		popl  %ecx # stack tear down
 		popl  %edx
 		addl  $4, %esp
 
-		# recall callee saved register
 		popl  %edi
 		popl  %esi
 		popl  %ebx
@@ -345,8 +379,12 @@ final_pop:
     leave
 		ret
 
+/* mp1_ioctl_endgame
+*  This function frees the memory allocated to the boards.
+*  Sets the pointers to the boards back to zero
+*/
 mp1_ioctl_endgame:
-    pushl %ebp # push old base pointer
+    pushl %ebp # stack setup
     movl %esp, %ebp
 
     pushl %ebx # callee save registers
@@ -372,10 +410,18 @@ mp1_ioctl_endgame:
 
 		movl  $0, current_board
 		movl  $0, next_board
-		movl $0, %eax
+		movl  $0, %eax
 		leave
 		ret
 
+/* mp1_ioctl_keystroke
+* the direction is dpecified in the struct of keystroke
+* left/right erases the current selector and draws to the new one
+  according to the button pressed
+* the up and down change the letter value
+* pressing the up and down button changes the guess value according
+  to the hints in the
+*/
 mp1_ioctl_keystroke:
     pushl %ebp # stack setup
 		movl  %esp, %ebp
@@ -393,7 +439,7 @@ mp1_ioctl_keystroke:
 		pushl %ecx # caller save
 		pushl %edx
 
-		pushl $KA_SIZE # push arguments
+		pushl $KA_SIZE # push arguments for struct setup in kernel
 		pushl 8(%ebp)
 		pushl %ebx
 		call mp1_copy_from_user
@@ -402,14 +448,14 @@ mp1_ioctl_keystroke:
 		popl  %edx # pop caller registers
 		popl  %ecx
 
-    cmpl  $0, %eax
+    cmpl  $0, %eax # if null pointer returned then keystrokes fails
 		jne   kys_fail
 
 		movw  (%ebx), %ax
-		test  $1, %ax
+		test  $1, %ax # and it with 1 to determine weather it is a left/right or up/down
 		je    left_or_right
 
-		cmp   $1, %ax
+		cmp   $1, %ax # if 1 then it is up direction
 		jne   up
 
   # down implementation
@@ -420,6 +466,7 @@ mp1_ioctl_keystroke:
 	# up implementation
 
 
+ # implementation for left and right
 	left_or_right:
 	  movl $select_blank, %esi  # pointer to select_blank
 		movl $0, %edi             # setup counter
@@ -427,9 +474,9 @@ mp1_ioctl_keystroke:
   selector_blank_loop:
     movl $0, %eax
 		movw SELECTOR(%esp), %ax
-		imull $10, %eax
+		imull $10, %eax  # get the offset according to (14+10S, 22)
 		addl  $14, %eax
-		addl  $1760, %eax
+		addl  $1760, %eax # 22*80 = 1760. this is the positions for the selector to be written
 		addl  %edi, %eax
 		imull $2, %eax, %eax
 		movb (%esi, %edi), %cl
@@ -438,7 +485,7 @@ mp1_ioctl_keystroke:
 		popl %edx
 
 		inc %edi
-		cmpl $3, %edi
+		cmpl $3, %edi # size of selector is 3 hence the comparison
 		jl   selector_blank_loop
 
 		cmpw $0, (%esp)
@@ -473,10 +520,10 @@ mp1_ioctl_keystroke:
 		movl $select_image, %esi
 	  movl $0, %edi             # setup counter
 
-	 selector_fill_loop:
+	 selector_fill_loop:   # the loop to draw the selector
 		movl $0, %eax
 	  movw SELECTOR(%esp), %ax
-	  imull $10, %eax
+	  imull $10, %eax  # as explained above
 	  addl  $14, %eax
 	  addl  $1760, %eax
 	  addl  %edi, %eax
@@ -519,10 +566,15 @@ mp1_ioctl_keystroke:
 		popl  %ebx
 		leave
 		ret
-
+/* mp1_ioctl_getstatus
+* This function allows the user code to retrieve the current population and virus infection count from
+  the kernel variables (population and infection)
+* Argument provides a pointer to a structure in user space into which the function
+  must copy these values.
+*/
 mp1_ioctl_getstatus:
     pushl %ebp
-		movl %esp, %ebp
+		movl  %esp, %ebp
 
     pushl %ebx # callee save registers
     pushl %esi
@@ -565,11 +617,22 @@ mp1_ioctl_getstatus:
 		leave
 		ret
 
+/* mp1_ioctl_vaccinate
+* This function handles the work necessary for vaccination
+* The parameter packed args is a 32-bit integer containing two unsigned
+  16-bit integers packed into its low and high words
+* The low 16 bits contain the percentage chance that a live cell in the
+  current board should be killed (set to 0)
+* generate function generates a 32-bit unsigned random number, whihch is used to calculate the remainder of that
+number when divided by 100, then compare with the given percentage to determine whether or not to kill that cell
+* high 16 bits are added to aggression
+*/
+
 mp1_ioctl_vaccinate:
-    pushl %ebp
+    pushl %ebp # stack setup
     movl %esp, %ebp
 
-    pushl %ebx # callee save registers
+    pushl %ebx
     pushl %esi
     pushl %edi
 
@@ -609,11 +672,11 @@ mp1_ioctl_vaccinate:
 
 
 	vac_ends:
-    movl $0, %eax
+    movl $0, %eax # this function always returns 0
 
-		popl %edx
+		popl %edx # stack tear down
     popl %ecx
- 	  popl  %edi # callee pop
+ 	  popl  %edi
     popl  %esi
  		popl  %ebx
 
