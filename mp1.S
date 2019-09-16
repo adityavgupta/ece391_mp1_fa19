@@ -377,7 +377,7 @@ mp1_ioctl_endgame:
 		ret
 
 mp1_ioctl_keystroke:
-    /*pushl %ebp # stack setup
+    pushl %ebp # stack setup
 		movl  %esp, %ebp
 		pushl %ebx
 		pushl %esi
@@ -412,24 +412,112 @@ mp1_ioctl_keystroke:
 		cmp   $1, %ax
 		jne   up
 
+  # down implementation
 
 
-		mov
+  up:
+
+	# up implementation
 
 
+	left_or_right:
+	  movl $select_blank, %esi  # pointer to select_blank
+		movl $0, %edi             # setup counter
+
+  selector_blank_loop:
+    movl $0, %eax
+		movw SELECTOR(%esp), %ax
+		imull $10, %eax
+		addl  $14, %eax
+		addl  $1760, %eax
+		addl  %edi, %eax
+		imull $2, %eax, %eax
+		movb (%esi, %edi), %cl
+		pushl %edx
+		call mp1_poke
+		popl %edx
+
+		inc %edi
+		cmpl $3, %edi
+		jl   selector_blank_loop
+
+		cmpw $0, (%esp)
+		je   left
+
+		movw SELECTOR(%esp), %ax
+		add  $1, %ax
+		cmp  $4, %ax
+		jg   right_loop_around
+		movw %ax, SELECTOR(%esp)
+		jmp draw_left_right
+
+		right_loop_around:
+		movw $0, SELECTOR(%esp)
+		jmp  draw_left_right
 
 
+	 left:
+     movw SELECTOR(%esp), %ax
+		 add  $-1, %ax
+		 cmp  $0, %ax
+		 jl   left_loop_around
 
+	   movw  %ax, SELECTOR(%esp)
+     jmp  draw_left_right
+
+   left_loop_around:
+		 movw  $4, SELECTOR(%esp)
+		 jmp   draw_left_right
+
+	 draw_left_right:
+		movl $select_image, %esi
+	  movl $0, %edi             # setup counter
+
+	 selector_fill_loop:
+		movl $0, %eax
+	  movw SELECTOR(%esp), %ax
+	  imull $10, %eax
+	  addl  $14, %eax
+	  addl  $1760, %eax
+	  addl  %edi, %eax
+	  imull $2, %eax, %eax
+	  movb (%esi, %edi), %cl
+	  pushl %edx
+	  call mp1_poke
+	  popl %edx
+
+	  inc %edi
+	  cmpl $3, %edi
+	  jl   selector_fill_loop
+
+		jmp kys_success
 
 
   kys_fail:
 	  movl  $-1, %eax
+    jmp kys_pop
+	kys_success:
+	 pushl %ecx
+	 pushl %edx
 
+	 pushl $KA_SIZE
+	 pushl %ebx
+	 pushl 8(%ebp)
+
+	 call mp1_copy_to_user
+
+	 addl $12,%esp
+
+	 popl %edx
+	 popl %ecx
+
+	 addl $KA_STACK,%esp
+	 movl $0, %eax
 	kys_pop:
 		popl  %edi # stack pop
 		popl  %esi
 		popl  %ebx
-		leave*/
+		leave
 		ret
 
 mp1_ioctl_getstatus:
