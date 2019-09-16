@@ -102,7 +102,7 @@ mp1_rtc_tasklet:
 		je    end_tasklet
 
 		movl  $1, %ebx # row  counter
-		xorl  %edx, %edx # clear register to keep track of alive cells in next_board
+		movl  $0, %edx # clear register to keep track of alive cells in next_board
  row_loop:
     movl  $1, %edi # set column counter to 1
  column_loop:
@@ -111,6 +111,7 @@ mp1_rtc_tasklet:
 		movl %esi, %ecx
     addl current_board, %esi
 
+    pushl %edx
     pushl %ecx
 		pushl %esi
 		call  neighbor_count
@@ -122,9 +123,10 @@ mp1_rtc_tasklet:
 		call  tick_result
 		addl  $8, %esp
 		popl  %ecx
+		popl  %edx
 
 		addl next_board, %ecx
-		movl %eax, (%ecx)
+		movb %al, (%ecx)
 
 
 		cmpl $0, %eax
@@ -134,14 +136,14 @@ mp1_rtc_tasklet:
   dead_cell:
 	  inc  %edi
 		cmpl $78, %edi
-		jbe  column_loop
+		jle  column_loop
 
 		inc  %ebx
 		cmpl $18, %ebx
-		jbe  row_loop
+		jle  row_loop
 
 		imull $10, %edx
-    movl  %edi, infection
+    movl  %edx, infection
 
    # part 2 of the tasklet: swapping the two baord pointers
 
@@ -157,7 +159,7 @@ mp1_rtc_tasklet:
 	 movl population, %esi
 	 subl  %ebx, %esi
 	 cmpl  $0, %esi
-	 jae   above_zero
+	 jge   above_zero
 	 movl  $0, population
 
    jmp   to_draw_screen
@@ -245,7 +247,7 @@ draw_screen:
 
 		inc %esi
 		cmp $SCR_SIZE, %esi
-		jl  drawing_loop
+		jb  drawing_loop
 
 		popl  %edi  # callee pop registers
 		popl  %esi
@@ -288,7 +290,7 @@ mp1_ioctl_startgame:
 		jmp   alloc_success
 
 board_2_fail:
-    pushl $current_board # free current_board
+    pushl current_board # free current_board
 		call  mp1_free
 		add   $4, %esp
 
@@ -316,7 +318,7 @@ alloc_success:
 	  cmpl  $0, %ebx
 		ja    board_2_counter
 
-		pushl $current_board # call init_virus on current_board
+		pushl current_board # call init_virus on current_board
 		call  init_virus
 		add   $4, %esp
 
@@ -354,15 +356,13 @@ mp1_ioctl_endgame:
     pushl %edx # caller save
     pushl %ecx
 
-		pushl $current_board
+		pushl current_board
 		call  mp1_free
 		addl  $4, %esp
-		movl  $0, current_board
 
-		pushl $next_board
+		pushl next_board
 		call  mp1_free
 		addl  $4, %esp
-		movl  $0, next_board
 
 		popl  %ecx
 		popl  %edx
@@ -370,12 +370,26 @@ mp1_ioctl_endgame:
 		popl  %esi
 		popl  %ebx
 
+		movl  $0, current_board
+		movl  $0, next_board
 		movl $0, %eax
 		leave
 		ret
 
 mp1_ioctl_keystroke:
+    pushl %ebp # stack setup
+		movl  %esp, %ebp
+		pushl %ebx
+		pushl %esi
+		pushl %edi
 
+    
+
+
+
+		popl  %edi # stack pop
+		popl  %esi
+		popl  %ebx
 		ret
 
 mp1_ioctl_getstatus:
