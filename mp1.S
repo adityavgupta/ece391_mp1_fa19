@@ -377,19 +377,59 @@ mp1_ioctl_endgame:
 		ret
 
 mp1_ioctl_keystroke:
-    pushl %ebp # stack setup
+    /*pushl %ebp # stack setup
 		movl  %esp, %ebp
 		pushl %ebx
 		pushl %esi
 		pushl %edi
 
-    
+    cmpl $0, 8(%ebp)  # check if the prameter is valid
+    je   kys_fail
+
+    subl $KA_STACK, %esp # allocate space for KA_STACK
+
+		movl %esp, %ebx # save a copy of stack top pointer into ebx
+
+		pushl %ecx # caller save
+		pushl %edx
+
+		pushl $KA_SIZE # push arguments
+		pushl 8(%ebp)
+		pushl %ebx
+		call mp1_copy_from_user
+		addl $12, %esp
+
+		popl  %edx # pop caller registers
+		popl  %ecx
+
+    cmpl  $0, %eax
+		jne   kys_fail
+
+		movw  (%ebx), %ax
+		test  $1, %ax
+		je    left_or_right
+
+		cmp   $1, %ax
+		jne   up
 
 
 
+		mov
+
+
+
+
+
+
+
+  kys_fail:
+	  movl  $-1, %eax
+
+	kys_pop:
 		popl  %edi # stack pop
 		popl  %esi
 		popl  %ebx
+		leave*/
 		ret
 
 mp1_ioctl_getstatus:
@@ -438,4 +478,56 @@ mp1_ioctl_getstatus:
 		ret
 
 mp1_ioctl_vaccinate:
+    pushl %ebp
+    movl %esp, %ebp
+
+    pushl %ebx # callee save registers
+    pushl %esi
+    pushl %edi
+
+		pushl %ecx
+		pushl %edx
+
+		movl current_board, %edi
+		movw 10(%ebp), %bx
+		addw %bx, aggression
+		movw 8(%ebp), %cx
+
+		movl $0, %esi
+
+	vac_loop:
+
+		call generate
+
+		movl $0, %edx
+		movl $100, %ebx
+
+		div %ebx
+
+		cmpw 8(%ebp), %dx
+		jle  cell_died
+
+		inc %esi
+		cmp $SCR_SIZE, %esi
+		jl  vac_loop
+
+		jmp vac_ends
+
+  cell_died:
+	  movb $0, (%esi, %edi)
+		inc %esi
+		cmp $SCR_SIZE, %esi
+		jl  vac_loop
+
+
+	vac_ends:
+    movl $0, %eax
+
+		popl %edx
+    popl %ecx
+ 	  popl  %edi # callee pop
+    popl  %esi
+ 		popl  %ebx
+
+ 		leave
 		ret
