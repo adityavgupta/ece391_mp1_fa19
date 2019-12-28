@@ -459,20 +459,83 @@ mp1_ioctl_keystroke:
 		jne   up
 
   # down implementation
+  		movl  $0, %edx
+		movw  2(%ebx), %dx
+		movb  4(%ebx, %edx), %cl
 
+		recheck_down:
+		cmp   $0, %cl
+		je    down_zero
 
-  up:
+		add  $-1, %cl
+		jmp   check_hint_d
 
-	# up implementation
+		down_zero:
+		mov   $3, %cl
+
+		check_hint_d:
+		mov   $0, %eax
+		mov   9(%edx, %ebx), %al
+		mov   %eax, %esi
+		shrl  %cl, %esi
+		test  $1, %esi
+		je 		recheck_down
+
+		mov   %cl, 4(%ebx, %edx)
+
+		jmp   draw_up_down
+
+# up implementation
+  	up:
+  		movl  $0, %edx
+		movw  2(%ebx), %dx
+		movb  4(%ebx, %edx), %cl
+
+		recheck_up:
+		cmp		$3, %cl
+		je    up_three
+
+		add   $1, %cl
+		jmp   check_hint_u
+
+		up_three:
+		mov   $0, %cl
+
+		check_hint_u:
+		mov   $0, %eax
+		mov   9(%edx, %ebx), %al
+		mov   %eax, %esi
+		shrl  %cl, %esi
+		test  $1, %esi
+		je 		recheck_up
+
+	  	mov   %cl, 4(%ebx, %edx)
+
+	draw_up_down:
+		mov   %edx, %eax
+		imull $10,  %eax
+		addl  $18, %eax
+		addl  $1760, %eax
+		imull $2, %eax
+
+		mov %ecx, %esi
+		add $base_array, %esi
+		movb (%esi), %cl
+
+		pushl %edx
+		call mp1_poke
+		popl %edx
+
+		jmp kys_success
 
 
  # implementation for left and right
 	left_or_right:
-	  movl $select_blank, %esi  # pointer to select_blank
+	  	movl $select_blank, %esi  # pointer to select_blank
 		movl $0, %edi             # setup counter
 
-  selector_blank_loop:
-    movl $0, %eax
+  	selector_blank_loop:
+    	movl $0, %eax
 		movw SELECTOR(%esp), %ax
 		imull $10, %eax  # get the offset according to (14+10S, 22)
 		addl  $14, %eax
@@ -504,27 +567,27 @@ mp1_ioctl_keystroke:
 
 
 	 left:
-     movw SELECTOR(%esp), %ax
-		 add  $-1, %ax
-		 cmp  $0, %ax
-		 jl   left_loop_around
+     	movw SELECTOR(%esp), %ax
+		add  $-1, %ax
+		cmp  $0, %ax
+		jl   left_loop_around
 
-	   movw  %ax, SELECTOR(%esp)
-     jmp  draw_left_right
+	    movw  %ax, SELECTOR(%esp)
+        jmp  draw_left_right
 
    left_loop_around:
-		 movw  $4, SELECTOR(%esp)
-		 jmp   draw_left_right
+		movw  $4, SELECTOR(%esp)
+		jmp   draw_left_right
 
 	 draw_left_right:
 		movl $select_image, %esi
-	  movl $0, %edi             # setup counter
+	  	movl $0, %edi             # setup counter
 
 	 selector_fill_loop:   # the loop to draw the selector
 		movl $0, %eax
-	  movw SELECTOR(%esp), %ax
-	  imull $10, %eax  # as explained above
-	  addl  $14, %eax
+	  	movw SELECTOR(%esp), %ax
+	  	imull $10, %eax  # as explained above
+	  	addl  $14, %eax
 	  addl  $1760, %eax
 	  addl  %edi, %eax
 	  imull $2, %eax, %eax
